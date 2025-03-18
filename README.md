@@ -20,7 +20,7 @@ A minimal Go HTTP server for serving files from a `public/` directory and provid
 
 ### 2. Build  
    ```bash
-   go build -o usb-nas-update-server
+   go build -o usb-nas-update-server.exe server.go
    ```
    This produces an executable named `usb-nas-update-server`.
 
