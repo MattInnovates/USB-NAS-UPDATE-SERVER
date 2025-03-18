@@ -10,14 +10,22 @@ import (
 	"strings"
 )
 
+// ensurePublicDir checks if the "public" folder exists, and creates it if missing.
+func ensurePublicDir() {
+	publicDir := "./public"
+	if _, err := os.Stat(publicDir); os.IsNotExist(err) {
+		log.Printf("Public directory not found. Creating %s...\n", publicDir)
+		err := os.Mkdir(publicDir, 0755)
+		if err != nil {
+			log.Fatalf("Failed to create public directory: %v", err)
+		}
+		log.Println("Public directory created successfully.")
+	}
+}
+
 // handler serves files and provides directory browsing.
 func handler(w http.ResponseWriter, r *http.Request) {
 	publicDir := "./public"
-	// Check that the public directory exists.
-	if _, err := os.Stat(publicDir); os.IsNotExist(err) {
-		http.Error(w, "Error: public directory does not exist", http.StatusNotFound)
-		return
-	}
 
 	// Clean the request path and join with publicDir.
 	reqPath := filepath.Clean(r.URL.Path)
@@ -26,7 +34,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Check if the path exists.
 	fi, err := os.Stat(fullPath)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error: File or directory not found", http.StatusNotFound)
 		return
 	}
 
@@ -34,7 +42,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		// If directory, list files.
 		files, err := os.ReadDir(fullPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Error reading directory", http.StatusInternalServerError)
 			return
 		}
 
@@ -44,7 +52,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		// Link to parent directory if not at root.
 		if r.URL.Path != "/" {
 			parent := filepath.Dir(r.URL.Path)
-			// Ensure parent always starts with "/"
 			if !strings.HasPrefix(parent, "/") {
 				parent = "/" + parent
 			}
@@ -56,8 +63,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			name := file.Name()
 			displayName := name
 			linkPath := filepath.Join(r.URL.Path, name)
-			// Make sure URL paths use forward slashes.
-			linkPath = filepath.ToSlash(linkPath)
+			linkPath = filepath.ToSlash(linkPath) // Ensure forward slashes in URLs
 			if file.IsDir() {
 				displayName = name + "/"
 				linkPath = linkPath + "/"
@@ -66,7 +72,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprint(w, "</ul></body></html>")
 	} else {
-		// If file, serve it.
+		// Serve the file.
 		http.ServeFile(w, r, fullPath)
 	}
 }
@@ -74,6 +80,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := flag.Int("port", 8080, "port to listen on")
 	flag.Parse()
+
+	// Ensure the "public" directory exists before starting the server.
+	ensurePublicDir()
 
 	http.HandleFunc("/", handler)
 
